@@ -21,6 +21,5 @@ Buckets should be ordered in the `ascending order of creation time`.<br><br>
 
 ```
 Note:
-1. Directory can grow only up to the Global Depth of 20.
-2. Deletions to be handled in a lazy manner. Only delete the corresponding key.
+    Deletions are handled in lazy manner(by default). You can change the deletion mode from 3rd line of code.
 ```
