@@ -3,6 +3,7 @@ using namespace std;
 #define DELETION_MODE 0
 
 class Bucket{
+    private:
         int depth,size;
         vector<int> values;
     public:
@@ -10,22 +11,24 @@ class Bucket{
         int insert(int key);
         int remove(int key);
         void search(int key);
-        int isFull(void);
-        int isEmpty(void);
-        int getDepth(void);
+        int isFull();
+        int isEmpty();
+        int getDepth();
         int changeDepth(int quantity);
-        vector<int> copy(void);
-        void clear(void);
-        void display(void);
+        vector<int> copy();
+        void clear();
+        void display();
+        virtual ~Bucket();
 };
 
 class Directory{
+    private:
         int global_depth, bucket_size;
         vector<Bucket*> buckets;
         int hash(int n);
         int pairIndex(int bucket_no, int depth);
-        void grow(void);
-        void shrink(void);
+        void grow();
+        void shrink();
         void split(int bucket_no);
         void merge(int bucket_no);
         string bucket_id(int n);
@@ -35,19 +38,19 @@ class Directory{
         void remove(int key,int mode);
         void search(int key);
         void display(bool duplicates, int mode);
+        virtual ~Directory();
 };
 
 // Main function
 
 int main(){
-    int bucket_size, global_depth;
+    int max_bucket_size, global_depth;
     int key;
     int choice;
-    int mode = DELETION_MODE;
     bool show_duplicate_buckets = 0;
     cin>>global_depth;
-    cin>>bucket_size;
-    Directory d(global_depth,bucket_size);
+    cin>>max_bucket_size;
+    Directory d(global_depth,max_bucket_size);
     cin>>choice;
     while(choice != 6){
         switch(choice){
@@ -63,11 +66,11 @@ int main(){
             }
             case 4:{
                 cin>>key;
-                d.remove(key,mode);
+                d.remove(key,DELETION_MODE);
                 break;
             }
             case 5:{
-                d.display(show_duplicate_buckets,mode);
+                d.display(show_duplicate_buckets,DELETION_MODE);
                 break;
             }
         }
@@ -107,9 +110,8 @@ void Directory::shrink(void){
 }
 
 void Directory::split(int bucket_no){
-    int local_depth,pair_index,index_diff,dir_size,i;
+    int local_depth,pair_index,index_diff,dir_size;
     vector<int> temp;
-    vector<int>::iterator it;
     local_depth = buckets[bucket_no]->changeDepth(1);
     if(local_depth>global_depth) grow();
     pair_index = pairIndex(bucket_no,local_depth);
@@ -118,9 +120,9 @@ void Directory::split(int bucket_no){
     buckets[bucket_no]->clear();
     index_diff = 1<<local_depth;
     dir_size = 1<<global_depth;
-    for( i=pair_index-index_diff ; i>=0 ; i-=index_diff ) buckets[i] = buckets[pair_index];
-    for( i=pair_index+index_diff ; i<dir_size ; i+=index_diff ) buckets[i] = buckets[pair_index];
-    for(it=temp.begin();it!=temp.end();it++) insert((*it),1);
+    for(int i=pair_index-index_diff ; i>=0 ; i-=index_diff ) buckets[i] = buckets[pair_index];
+    for(int i=pair_index+index_diff ; i<dir_size ; i+=index_diff ) buckets[i] = buckets[pair_index];
+    for(auto it=temp.begin();it!=temp.end();it++) insert((*it),1);
 }
 
 void Directory::merge(int bucket_no){
@@ -205,6 +207,13 @@ void Directory::display(bool duplicates, int mode){
     }
 }
 
+Directory::~Directory(){
+    for(int i=0; i<buckets.size(); i++){
+        buckets[i]->clear();
+        delete(buckets[i]);
+    }
+}
+
 // Bucket class functions
 
 Bucket::Bucket(int depth, int size){
@@ -253,7 +262,7 @@ int Bucket::getDepth(void){
 }
 
 int Bucket::changeDepth(int quantity){
-    depth+=quantity;
+    depth += quantity;
     return depth;
 }
 
@@ -268,4 +277,8 @@ void Bucket::clear(void){
 
 void Bucket::display(){
     cout<<values.size()<<" "<<depth<<"\n";
+}
+
+Bucket::~Bucket(){
+    return;
 }
