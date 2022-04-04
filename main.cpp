@@ -23,8 +23,8 @@ class Bucket{
 
 class Directory{
     private:
-        int global_depth, bucket_size;
-        vector<Bucket*> buckets;
+        int global_depth, bucket_size, clock;
+        vector<pair<Bucket*,int>> buckets;
         int hash(int n);
         int pairIndex(int bucket_no, int depth);
         void grow();
@@ -41,8 +41,12 @@ class Directory{
         virtual ~Directory();
 };
 
-// Main function
+// Sorting Function
+bool cmp(pair<Bucket*,int>& a, pair<Bucket*,int>& b){
+    return a.second<b.second;
+}
 
+// Main function
 int main(){
     int max_bucket_size, global_depth;
     int key;
@@ -85,7 +89,10 @@ Directory::Directory(int depth, int bucket_size)
 {
     this->global_depth = depth;
     this->bucket_size = bucket_size;
-    for(int i = 0 ; i < 1<<depth ; i++) buckets.push_back(new Bucket(depth,bucket_size));
+    this->clock = 1<<(global_depth+1);
+    for(int i = 0 ; i < 1<<depth ; i++){
+        buckets.push_back({new Bucket(depth,bucket_size),clock});
+    }
 }
 
 int Directory::hash(int n){
@@ -103,7 +110,7 @@ void Directory::grow(void){
 
 void Directory::shrink(void){
     for(int i = 0 ; i<buckets.size() ; i++){
-        if(buckets[i]->getDepth()==global_depth) return;
+        if((buckets[i].first)->getDepth()==global_depth) return;
     }
     global_depth--;
     for(int i = 0 ; i < 1<<global_depth ; i++) buckets.pop_back();
@@ -112,12 +119,13 @@ void Directory::shrink(void){
 void Directory::split(int bucket_no){
     int local_depth,pair_index,index_diff,dir_size;
     vector<int> temp;
-    local_depth = buckets[bucket_no]->changeDepth(1);
+    local_depth = (buckets[bucket_no].first)->changeDepth(1);
     if(local_depth>global_depth) grow();
     pair_index = pairIndex(bucket_no,local_depth);
-    buckets[pair_index] = new Bucket(local_depth,bucket_size);
-    temp = buckets[bucket_no]->copy();
-    buckets[bucket_no]->clear();
+    clock++;
+    buckets[pair_index] = {new Bucket(local_depth,bucket_size),clock};
+    temp = (buckets[bucket_no].first)->copy();
+    (buckets[bucket_no].first)->clear();
     index_diff = 1<<local_depth;
     dir_size = 1<<global_depth;
     for(int i=pair_index-index_diff ; i>=0 ; i-=index_diff ) buckets[i] = buckets[pair_index];
@@ -127,13 +135,14 @@ void Directory::split(int bucket_no){
 
 void Directory::merge(int bucket_no){
     int local_depth,pair_index,index_diff,dir_size;
-    local_depth = buckets[bucket_no]->getDepth();
+    local_depth = (buckets[bucket_no].first)->getDepth();
     pair_index = pairIndex(bucket_no,local_depth);
     index_diff = 1<<local_depth;
     dir_size = 1<<global_depth;
-    if( buckets[pair_index]->getDepth() == local_depth ){
-        buckets[pair_index]->changeDepth(-1);
-        delete(buckets[bucket_no]);
+    if( (buckets[pair_index].first)->getDepth() == local_depth ){
+        (buckets[pair_index].first)->changeDepth(-1);
+        delete(buckets[bucket_no].first);
+        buckets[bucket_no].first = nullptr;
         buckets[bucket_no] = buckets[pair_index];
         for(int i=bucket_no-index_diff ; i>=0 ; i-=index_diff ) buckets[i] = buckets[pair_index];
         for(int i=bucket_no+index_diff ; i<dir_size ; i+=index_diff ) buckets[i] = buckets[pair_index];
@@ -143,7 +152,7 @@ void Directory::merge(int bucket_no){
 string Directory::bucket_id(int n){
     int d;
     string s;
-    d = buckets[n]->getDepth();
+    d = (buckets[n].first)->getDepth();
     s = "";
     while(n>0 && d>0){
         s = (n%2==0?"0":"1")+s;
@@ -159,7 +168,14 @@ string Directory::bucket_id(int n){
 
 void Directory::insert(int key,bool reinserted){
     int bucket_no = hash(key);
-    int status = buckets[bucket_no]->insert(key);
+    if((buckets[bucket_no].first)->isEmpty()==0){
+        for(auto i : buckets){
+            if(i.first==nullptr) continue;
+            i.second--;
+        }
+        buckets[bucket_no].second--;
+    }
+    int status = (buckets[bucket_no].first)->insert(key);
     if(status==0){
         split(bucket_no);
         insert(key,reinserted);
@@ -173,14 +189,14 @@ void Directory::insert(int key,bool reinserted){
 
 void Directory::remove(int key,int mode){
     int bucket_no = hash(key);
-    buckets[bucket_no]->remove(key);
-    if(mode>0 && buckets[bucket_no]->isEmpty() && buckets[bucket_no]->getDepth()>1) merge(bucket_no);
+    (buckets[bucket_no].first)->remove(key);
+    if(mode>0 && (buckets[bucket_no].first)->isEmpty() && (buckets[bucket_no].first)->getDepth()>1) merge(bucket_no);
     if(mode>1) shrink();
 }
 
 void Directory::search(int key){
     int bucket_no = hash(key);
-    buckets[bucket_no]->search(key);
+    (buckets[bucket_no].first)->search(key);
 }
 
 void Directory::display(bool duplicates, int mode){
@@ -193,24 +209,27 @@ void Directory::display(bool duplicates, int mode){
         s = bucket_id(i);
         if(duplicates || shown.find(s)==shown.end()){
             shown.insert(s);
-            if(buckets[i]->isEmpty() == 0 || mode == 0) size++;
+            if((buckets[i].first)->isEmpty() == 0 || mode == 0) size++;
         }
     }
     cout<<size<<"\n";
     shown.clear();
-    for(i=0;i<buckets.size();i++){
+    vector<pair<Bucket*,int>> tempo = buckets;
+    sort(tempo.begin(),tempo.end(),cmp);
+    for(i=0;i<tempo.size();i++){
         s = bucket_id(i);
         if(duplicates || shown.find(s)==shown.end()){
             shown.insert(s);
-            if(buckets[i]->isEmpty() == 0 || mode == 0) buckets[i]->display();
+            if((tempo[i].first)->isEmpty() == 0 || mode == 0) (tempo[i].first)->display();
         }
     }
 }
 
 Directory::~Directory(){
     for(int i=0; i<buckets.size(); i++){
-        buckets[i]->clear();
-        delete(buckets[i]);
+        if(buckets[i].first == nullptr) continue;
+        (buckets[i].first)->clear();
+        delete((buckets[i].first));
     }
 }
 
